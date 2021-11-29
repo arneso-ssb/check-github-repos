@@ -14,7 +14,7 @@ def main(token):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
-    parser.add_argument('token', help="GitHub Personal Access token")
+    parser.add_argument('token', help="GitHub Personal Access Token")
     args = parser.parse_args()
 
     print(args.token)
