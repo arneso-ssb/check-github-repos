@@ -4,11 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-PyGithub = "*"
+gitpython = "*"
+pygithub = "*"
 wheel = "*"
 
 [dev-packages]
-black = "==21.9b0"  # need to pin the version because of prerelease
+black = "==21.11b1"  # need to pin the version because of prerelease
 isort = "*"
 nbstripout = "*"
 
