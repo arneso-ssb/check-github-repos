@@ -33,7 +33,7 @@ def del_ro(action, name, exc):
 
 def check_branch(git_repo, path, branch):
     print(f"Checking branch: {branch}")
-    git_repo.git.checkout(branch)
+    git_repo.git.switch(branch)
 
     files_to_check = path.rglob("*.ipynb")
     # print("  Files to check for output:")
