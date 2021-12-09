@@ -5,13 +5,13 @@ name = "pypi"
 
 [packages]
 gitpython = "*"
+nbstripout = "*"
 pygithub = "*"
 wheel = "*"
 
 [dev-packages]
 black = "==21.11b1"  # need to pin the version because of prerelease
 isort = "*"
-nbstripout = "*"
 
 [requires]
 python_version = "3.8"
