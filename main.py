@@ -32,6 +32,7 @@ class RepoStatistics:
     error_files: int = 0
     repo_contact_name: str = ""
     repo_contact_email: str = ""
+    repo_contact_rank: int = 0
 
 
 def credentials_url(url, token):
@@ -91,13 +92,49 @@ def check_branch(git_repo, path, branch, repo_stat):
     return repo_stat
 
 
-def check_repo(repo, token):
-    clone_url = credentials_url(repo.clone_url, token)
+def get_contact_name_and_email(github_repo, git_repo):
+    """Get the name and email of the person to be contacted for the repo.
+
+    The priority order is the most frequent contributors(up to three).
+    If the name or email is empty, the next item is tried.
+    If no contributor with name and email is found, the name and email of
+    the last committer on the default branch is selected.
+
+    Contact rank:
+        1..3 = contributor rank
+        4 = last committer on default the branch
+
+    Args:
+        github_repo: The GitHub repo
+        git_repo: The cloned git repo.
+    Returns:
+        Tuple with name, email and contact rank.
+    """
+    name = ""
+    email = ""
+    contributors = github_repo.get_contributors()
+    for i, contributor in enumerate(contributors, start=1):
+        name = contributor.name
+        email = contributor.email
+        if name and email:
+            return name, email, i
+        if i >= 3:
+            break
+
+    # Fallback to name and email of last commit on default branch
+    git_repo.git.switch(github_repo.default_branch)
+    last_commit = git_repo.head.commit
+    author_email = git_repo.git.show("-s", "--format=%ae", last_commit.hexsha)
+    return last_commit.author.name, author_email, 4
+
+
+def check_repo(github_repo, token):
+    clone_url = credentials_url(github_repo.clone_url, token)
     logging.info("--------------------------------------------")
-    logging.info(f"Checking repo: {repo.full_name}")
+    logging.info(f"Checking repo: {github_repo.full_name}")
 
     # Set clone path to ../tmp-repos/{repo.name}
-    path = Path().resolve().parent / "tmp-repos" / repo.name
+    path = Path().resolve().parent / "tmp-repos" / github_repo.name
     delete_dir(path)
     git_repo = Repo.clone_from(clone_url, path)
 
@@ -107,18 +144,20 @@ def check_repo(repo, token):
         branches.remove("HEAD")
     logging.info(f"  Branches: {branches}")
 
-    repo_stat = RepoStatistics(repo.full_name)
+    repo_stat = RepoStatistics(github_repo.full_name)
     for branch in branches:
         repo_stat = check_branch(git_repo, path, branch, repo_stat)
 
+    (
+        repo_stat.repo_contact_name,
+        repo_stat.repo_contact_email,
+        repo_stat.repo_contact_rank,
+    ) = get_contact_name_and_email(github_repo, git_repo)
+
     if repo_stat.state == "CLEAN":
-        logging.info(f"Repo {repo.full_name} is CLEAN")
+        logging.info(f"Repo {github_repo.full_name} is CLEAN")
     else:
-        logging.warning(f"Repo {repo.full_name} is {repo_stat.state}")
-        contributors = repo.get_contributors()
-        if contributors:
-            repo_stat.repo_contact_name = contributors[0].name
-            repo_stat.repo_contact_email = contributors[0].email
+        logging.warning(f"Repo {github_repo.full_name} is {repo_stat.state}")
 
     logging.info(repo_stat)
 
@@ -130,10 +169,6 @@ def main(token):
     logging.info("Scanning organization for repos containing Jupyter Notebooks...")
     g = Github(token)
 
-    # jupyter_repos = [
-    #     g.get_repo("statisticsnorway/testrepo1"),
-    #     g.get_repo("statisticsnorway/testrepo2"),
-    # ]
     jupyter_repos = []
     for repo in g.get_organization("statisticsnorway").get_repos():
         if "Jupyter Notebook" in repo.get_languages():
