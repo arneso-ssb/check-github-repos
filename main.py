@@ -15,7 +15,7 @@ from github import Github
 logging.basicConfig(
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("jupyter-output-check.log", mode="w"),
+        logging.FileHandler("jupyter-output-check.log", mode="w", encoding="utf-8"),
         logging.StreamHandler(),
     ],
     format="%(asctime)s %(levelname)s %(message)s",
@@ -128,10 +128,10 @@ def get_contact_name_and_email(github_repo, git_repo):
     return last_commit.author.name, author_email, 4
 
 
-def check_repo(github_repo, token):
+def check_repo(github_repo, token, progress_text=""):
     clone_url = credentials_url(github_repo.clone_url, token)
     logging.info("--------------------------------------------")
-    logging.info(f"Checking repo: {github_repo.full_name}")
+    logging.info(f"Checking repo{progress_text}: {github_repo.full_name}")
 
     # Set clone path to ../tmp-repos/{repo.name}
     path = Path().resolve().parent / "tmp-repos" / github_repo.name
@@ -171,14 +171,15 @@ def main(token):
 
     jupyter_repos = []
     for repo in g.get_organization("statisticsnorway").get_repos():
-        if "Jupyter Notebook" in repo.get_languages():
+        if "Jupyter Notebook" in repo.get_languages() and not repo.archived:
             logging.info(f"{repo.full_name} contains notebooks")
             jupyter_repos.append(repo)
     logging.info(f"There are {len(jupyter_repos)} repos with Jupyter Notebooks")
 
     repo_stats = []
-    for repo in jupyter_repos:
-        repo_stats.append(check_repo(repo, token))
+    for i, repo in enumerate(jupyter_repos, start=1):
+        progress_text = f" [{i}/{len(jupyter_repos)}]"
+        repo_stats.append(check_repo(repo, token, progress_text))
 
     logging.info("------------------------------------")
     logging.info("Statistics:")
