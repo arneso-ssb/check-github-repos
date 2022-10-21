@@ -1,3 +1,5 @@
+"""This script checks an organization's repos for notebooks which contains outputs."""
+
 import argparse
 import logging
 import os
@@ -9,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from git import Repo
-from github import Github
+from github import Github, Repository
 
 
 logging.basicConfig(
@@ -54,7 +56,7 @@ def check_file(file, repo_stat):
 
 
 def del_ro(function, path, excinfo):
-    """For deleting read_only files in .git directory by making them writeable"""
+    """For deleting read_only files in .git directory by making them writeable."""
     os.chmod(path, stat.S_IWRITE)
     os.remove(path)
 
@@ -76,7 +78,8 @@ def check_branch(git_repo, path, branch, repo_stat):
     changed_files = [item.a_path for item in git_repo.index.diff(None)]
     if changed_files:
         logging.warning(
-            f"  Checking branch: {branch}, DIRTY. Repo: {repo_stat.repo_name}. Files that contains output:"
+            f"  Checking branch: {branch}, DIRTY. Repo: {repo_stat.repo_name}. "
+            f"Files that contains output:"
         )
         for file in changed_files:
             logging.warning(f"      {file}")
@@ -92,7 +95,9 @@ def check_branch(git_repo, path, branch, repo_stat):
     return repo_stat
 
 
-def get_contact_name_and_email(github_repo, git_repo):
+def get_contact_name_and_email(
+    github_repo: Repository, git_repo: Repo
+) -> tuple[str, str, int]:
     """Get the name and email of the person to be contacted for the repo.
 
     The priority order is the most frequent contributors(up to three).
@@ -105,8 +110,9 @@ def get_contact_name_and_email(github_repo, git_repo):
         4 = last committer on default the branch
 
     Args:
-        github_repo: The GitHub repo
+        github_repo: The GitHub repo.
         git_repo: The cloned git repo.
+
     Returns:
         Tuple with name, email and contact rank.
     """
