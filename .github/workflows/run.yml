@@ -20,4 +20,4 @@ jobs:
           poetry --version
           poetry env list
       - name: Run script
-        run: poetry run main.py
+        run: poetry run python3 main.py
