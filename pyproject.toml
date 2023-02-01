@@ -9,10 +9,10 @@ packages = [{include = "check-github-repos"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-wheel = "^0.37.1"
-gitpython = "^3.1.29"
+wheel = "^0.38.4"
+gitpython = "^3.1.30"
 nbstripout = "^0.6.1"
-pygithub = "^1.56"
+pygithub = "^1.57"
 
 [tool.poetry.group.dev.dependencies]
 black = {extras = ["d"], version = "^22.8.0"}
