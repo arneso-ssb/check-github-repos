@@ -1,6 +1,7 @@
 """This script checks an organization's repos for notebooks which contains outputs."""
 
 import argparse
+import json
 import logging
 import os
 import shutil
@@ -13,6 +14,8 @@ from pathlib import Path
 from git import Repo
 from github import Github, Repository
 
+
+repo_list_filename = "jupyter-ssb-repos.json"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -151,14 +154,18 @@ def check_repo(github_repo, token, progress_text=""):
     logging.info(f"  Branches: {branches}")
 
     repo_stat = RepoStatistics(github_repo.full_name)
-    for branch in branches:
-        repo_stat = check_branch(git_repo, path, branch, repo_stat)
+    try:
+        for branch in branches:
+            repo_stat = check_branch(git_repo, path, branch, repo_stat)
 
-    (
-        repo_stat.repo_contact_name,
-        repo_stat.repo_contact_email,
-        repo_stat.repo_contact_rank,
-    ) = get_contact_name_and_email(github_repo, git_repo)
+        (
+            repo_stat.repo_contact_name,
+            repo_stat.repo_contact_email,
+            repo_stat.repo_contact_rank,
+        ) = get_contact_name_and_email(github_repo, git_repo)
+    except Exception:
+        logging.error(f"Exception when investigating {github_repo.full_name}")
+        repo_stat.state = "DIRTY"
 
     if repo_stat.state == "CLEAN":
         logging.info(f"Repo {github_repo.full_name} is CLEAN")
@@ -172,14 +179,26 @@ def check_repo(github_repo, token, progress_text=""):
 
 
 def main(token):
-    logging.info("Scanning organization for repos containing Jupyter Notebooks...")
+    logging.info("Script started")
     g = Github(token)
 
     jupyter_repos = []
-    for repo in g.get_organization("statisticsnorway").get_repos():
-        if "Jupyter Notebook" in repo.get_languages() and not repo.archived:
-            logging.info(f"{repo.full_name} contains notebooks")
+    if not Path(repo_list_filename).is_file():
+        logging.info("Scanning organization for repos containing Jupyter Notebooks...")
+        for repo in g.get_organization("statisticsnorway").get_repos():
+            if "Jupyter Notebook" in repo.get_languages() and not repo.archived:
+                logging.info(f"{repo.full_name} contains notebooks")
+                jupyter_repos.append(repo)
+
+        repo_names = [repo.full_name for repo in jupyter_repos]
+        Path(repo_list_filename).write_text(json.dumps(repo_names))
+    else:
+        logging.info(f"Reading repos from {repo_list_filename}...")
+        repo_names = json.loads(Path(repo_list_filename).read_text())
+        for repo_name in repo_names:
+            repo = g.get_repo(repo_name)
             jupyter_repos.append(repo)
+
     logging.info(f"There are {len(jupyter_repos)} repos with Jupyter Notebooks")
 
     repo_stats = []
