@@ -59,6 +59,7 @@ def main(token):
         repo_names = json.loads(Path(repo_list_filename).read_text())
         for repo_name in repo_names:
             if "libtest" not in repo_name:
+                print(repo_name)
                 repo = g.get_repo(repo_name)
                 pypi_repos.append(repo)
 
