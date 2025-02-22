@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from git import Repo
-from github import Github, Repository
+from github import Github
+from github import Repository
 
 
 repo_list_filename = "jupyter-ssb-repos.json"
