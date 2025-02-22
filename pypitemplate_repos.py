@@ -51,7 +51,7 @@ def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
     pypitemplate_repos = []
     for index, repo in enumerate(repos, start=1):
         try:
-            print(f"Checking repo {index}, found: {found}")
+            logging.info(f"Checking repo {index}, found: {found}")
             contents = repo.get_contents(".cruft.json")
             if contents and "pypitemplate" in contents.decoded_content.decode("utf-8"):
                 logging.info(
