@@ -12,17 +12,13 @@ python = "^3.10"
 gitpython = ">=3.1.30"
 nbstripout = ">=0.6.1"
 pygithub = ">=1.57"
+pandas = ">=2.2.3"
 
 [tool.poetry.group.dev.dependencies]
 black = {extras = ["d"], version = ">=23.3.0"}
 darglint = ">=1.8.1"
-flake8 = ">=5.0.4"
-flake8-bandit = ">=4.1.1"
-flake8-bugbear = ">=22.9.23"
-flake8-docstrings = ">=1.6.0"
 isort = ">=5.10.1"
 mypy = ">=0.982"
-pep8-naming = ">=0.13.2"
 pre-commit = ">=2.20.0"
 pre-commit-hooks = ">=4.3.0"
 pylint = ">=2.15.3"
@@ -30,6 +26,8 @@ coverage = {extras = ["toml"], version = ">=6.5.0"}
 pytest = ">=7.1.3"
 pytest-cov = ">=4.0.0"
 pytest-mock = ">=3.9.0"
+ruff = ">=0.9.7"
+pandas-stubs = ">=2.2.3.241126"
 
 [build-system]
 requires = ["poetry-core"]
@@ -37,6 +35,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 profile = "black"
+force_single_line = true
+skip_gitignore = true
 lines_after_imports = 2
 
 [tool.pylint.format]
@@ -57,3 +57,49 @@ omit = ["*/__init__.py"]
 [tool.coverage.report]
 show_missing = true
 # fail_under = 100
+
+[tool.ruff]
+force-exclude = true  # Apply excludes to pre-commit
+show-fixes = true
+target-version = "py312"  # Minimum Python version supported
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+extend-exclude = [
+    "__pycache__",
+]
+
+# Ruff rules may be customized as desired: https://docs.astral.sh/ruff/rules/
+[tool.ruff.lint]
+select = [
+    "A",    # prevent using keywords that clobber python builtins
+    "B",    # bugbear: security warnings
+    "D",    # pydocstyle
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "ISC",  # implicit string concatenation
+    "UP",   # alert you when better syntax is available in your python version
+    "RUF",  # the ruff developer's own rules
+]
+ignore = [
+    "ANN202", # Don't requiere return type annotation for private functions.
+    "ANN401", # Allow type annotation with type Any.
+    "D100",   # Supress undocumented-public-module. Only doc of public api required.
+    "E402",   # Supress module-import-not-at-top-of-file, needed in jupyter notebooks.
+    "E501",   # Supress line-too-long warnings: trust black's judgement on this one.
+    "I001",   # Don't use ruff to sort imports because of jupytext files.
+    "T201",   # Allow print statements.
+    "ERA001", # Allow commented-out code, needed for jupytext.
+    "INP001", # Don't require __init__.py file.
+    "PD901",  # Allow df as variable name.
+    "B018",   # Like T201, allow expressions printing variables in notebooks.
+    "C408",   # Allow unnecessary collection call since can be more readable.
+    "D101",   # Don't require docstring.
+    "D102",   # Don't require docstring.
+    "D103",   # Don't require docstring.
+    "D107",   # Don't require docstring.
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # You can also use "numpy".

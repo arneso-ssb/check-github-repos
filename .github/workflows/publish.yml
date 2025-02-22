@@ -1,0 +1,54 @@
+name: Generate and Publish repo statistics
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Kjører natt til søndag kl. 00:00 UTC
+  workflow_dispatch: # Mulighet for å kjøre manuelt
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  generate-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install poetry
+        run: pipx install poetry==2.1.1
+
+      - name: Seup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "poetry"
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Run script
+        run: poetry run python3 pypitemplate_repos.py ${{ secrets.SSB_READ_TOKEN }}
+
+      - name: Move content to publish folder
+        run: mkdir publish && mv ssb-pypitemplate-repos.html publish/
+
+      - name: Upload GitHub Pages artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: generate-data
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy til GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

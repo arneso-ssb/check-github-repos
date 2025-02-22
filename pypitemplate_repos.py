@@ -4,15 +4,16 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
-from github import (
-    Github,
-    GithubException,
-    Organization,
-    Repository,
-    UnknownObjectException,
-)
+import pandas as pd
+from github import Github
+from github import GithubException
+from github import Organization
+from github import Repository
+from github import UnknownObjectException
 
 
 repo_list_filename = "ssb-pypitemplate-repos.json"
@@ -44,7 +45,7 @@ def get_repos(org: Organization) -> list[Repository]:
     return repos
 
 
-def filter_pypitemplate_repos(repos: list[Repository]) -> list[Repository]:
+def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
     logging.info("Scanning for repos created with ssb-pypitemplate...")
     found = 0
     pypitemplate_repos = []
@@ -70,8 +71,117 @@ def filter_pypitemplate_repos(repos: list[Repository]) -> list[Repository]:
     return pypitemplate_repos
 
 
+class CommitInfo(TypedDict):
+    date: datetime
+    tag: str | None
+
+
+def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
+    logging.info(f"Get commits from repo {repo_name}")
+    repo = Github(token).get_repo(repo_name)
+
+    first_ssb_commit_date = datetime(year=2023, month=6, day=1)
+    commits = repo.get_commits(sha=repo.default_branch, since=first_ssb_commit_date)
+
+    tags = {tag.commit.sha: tag.name for tag in repo.get_tags()}
+
+    commits_info: dict[str, CommitInfo] = {}
+    for commit in commits:
+        commit_hash = commit.sha
+        tag = tags.get(commit_hash)
+
+        commits_info[commit_hash] = {"date": commit.commit.author.date, "tag": tag}
+
+    return commits_info
+
+
+def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFrame:
+    g = Github(token)
+    template_commits = get_template_commits("statisticsnorway/ssb-pypitemplate", token)
+
+    data = []
+    for repo_name in pypitemplate_repos:
+        repo = g.get_repo(repo_name)
+        contents = repo.get_contents(".cruft.json").decoded_content.decode("utf-8")
+        cruft_dict = json.loads(contents)
+        template_hash = cruft_dict["commit"]
+        template_date = template_commits[template_hash]["date"]
+        template_tag = template_commits[template_hash]["tag"]
+        latest_update = repo.pushed_at
+        latest_commiter = repo.get_commits()[0].commit.author.name
+        data.append(
+            {
+                "repo_name": repo_name,
+                "latest_update": latest_update,
+                "latest_commiter": latest_commiter,
+                "template_hash": template_hash,
+                "template_date": template_date,
+                "template_tag": template_tag,
+            }
+        )
+        logging.info(f"{repo_name}: {template_hash} {template_date} ({template_tag})")
+
+    return pd.DataFrame(
+        data,
+        columns=[
+            "repo_name",
+            "latest_update",
+            "latest_commiter",
+            "template_hash",
+            "template_date",
+            "template_tag",
+        ],
+    )
+
+
+def save_as_html(df: pd.DataFrame, filename: str) -> None:
+    df["latest_update"] = df["latest_update"].dt.date
+    df["template_date"] = df["template_date"].dt.date
+    table_html = df.to_html(
+        table_id="pypitemplate",
+        classes="display",
+        index=False,
+        border=0,
+    )
+
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>DataTables Example</title>
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+        <!-- DataTables CSS -->
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.2.2/css/dataTables.dataTables.css">
+        <!-- DataTables JS -->
+        <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/2.2.2/js/dataTables.js"></script>
+        <style>
+            /* Additional styling for the table */
+            table.dataTable {{
+                width: 80%;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>GitHub repos based on ssb-pypitemplate</h1>
+        {table_html}
+        <script>
+            $('#pypitemplate').DataTable({{
+                pageLength: 100,
+                autoWidth: false
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write(html_template)
+
+
 def main(token):
     logging.info("Script started")
+
     g = Github(token)
     org = g.get_organization("statisticsnorway")
 
@@ -85,6 +195,9 @@ def main(token):
     logging.info(
         f"There are {len(pypitemplate_repos)} repos created from ssb-pypitemplate"
     )
+
+    repo_stat = get_repos_statistics(token, pypitemplate_repos)
+    save_as_html(repo_stat, "ssb-pypitemplate-repos.html")
 
 
 if __name__ == "__main__":
