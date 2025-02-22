@@ -68,7 +68,7 @@ def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
     repo_names = sorted([repo.full_name for repo in pypitemplate_repos])
     Path(repo_list_filename).write_text(json.dumps(repo_names))
     write_list_to_file(repo_names, Path("ssb-pypitemplate-repos.txt"))
-    return pypitemplate_repos
+    return repo_names
 
 
 class CommitInfo(TypedDict):
