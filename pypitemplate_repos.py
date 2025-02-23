@@ -134,7 +134,7 @@ def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFr
     )
 
 
-def save_as_html(df: pd.DataFrame, filename: str) -> None:
+def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
     df["latest_update"] = df["latest_update"].dt.date
     df["template_date"] = df["template_date"].dt.date
     table_html = df.to_html(
@@ -143,6 +143,8 @@ def save_as_html(df: pd.DataFrame, filename: str) -> None:
         index=False,
         border=0,
     )
+
+    current_timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S%z")
 
     html_template = f"""
     <!DOCTYPE html>
@@ -164,7 +166,8 @@ def save_as_html(df: pd.DataFrame, filename: str) -> None:
         </style>
     </head>
     <body>
-        <h1>GitHub repos based on ssb-pypitemplate</h1>
+        <h1>{title}</h1>
+        <p>Generated at {current_timestamp}</p>
         {table_html}
         <script>
             $('#pypitemplate').DataTable({{
@@ -197,7 +200,11 @@ def main(token):
     )
 
     repo_stat = get_repos_statistics(token, pypitemplate_repos)
-    save_as_html(repo_stat, "ssb-pypitemplate-repos.html")
+    save_as_html(
+        repo_stat,
+        "ssb-pypitemplate-repos.html",
+        "GitHub repos based on ssb-pypitemplate",
+    )
 
 
 if __name__ == "__main__":
