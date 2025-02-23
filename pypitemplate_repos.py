@@ -51,7 +51,7 @@ def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
     pypitemplate_repos = []
     for index, repo in enumerate(repos, start=1):
         try:
-            print(f"Checking repo {index}, found: {found}")
+            logging.info(f"Checking repo {index}, found: {found}")
             contents = repo.get_contents(".cruft.json")
             if contents and "pypitemplate" in contents.decoded_content.decode("utf-8"):
                 logging.info(
@@ -68,7 +68,7 @@ def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
     repo_names = sorted([repo.full_name for repo in pypitemplate_repos])
     Path(repo_list_filename).write_text(json.dumps(repo_names))
     write_list_to_file(repo_names, Path("ssb-pypitemplate-repos.txt"))
-    return pypitemplate_repos
+    return repo_names
 
 
 class CommitInfo(TypedDict):
@@ -134,7 +134,7 @@ def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFr
     )
 
 
-def save_as_html(df: pd.DataFrame, filename: str) -> None:
+def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
     df["latest_update"] = df["latest_update"].dt.date
     df["template_date"] = df["template_date"].dt.date
     table_html = df.to_html(
@@ -143,6 +143,8 @@ def save_as_html(df: pd.DataFrame, filename: str) -> None:
         index=False,
         border=0,
     )
+
+    current_timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S%z")
 
     html_template = f"""
     <!DOCTYPE html>
@@ -164,7 +166,8 @@ def save_as_html(df: pd.DataFrame, filename: str) -> None:
         </style>
     </head>
     <body>
-        <h1>GitHub repos based on ssb-pypitemplate</h1>
+        <h1>{title}</h1>
+        <p>Generated at {current_timestamp}</p>
         {table_html}
         <script>
             $('#pypitemplate').DataTable({{
@@ -197,7 +200,11 @@ def main(token):
     )
 
     repo_stat = get_repos_statistics(token, pypitemplate_repos)
-    save_as_html(repo_stat, "ssb-pypitemplate-repos.html")
+    save_as_html(
+        repo_stat,
+        "ssb-pypitemplate-repos.html",
+        "GitHub repos based on ssb-pypitemplate",
+    )
 
 
 if __name__ == "__main__":

@@ -34,12 +34,10 @@ jobs:
         run: poetry run python3 pypitemplate_repos.py ${{ secrets.SSB_READ_TOKEN }}
 
       - name: Move content to publish folder
-        run: mkdir publish && mv ssb-pypitemplate-repos.html publish/
+        run: mkdir _site && mv ssb-pypitemplate-repos.html _site/
 
       - name: Upload GitHub Pages artifacts
         uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
 
   deploy:
     needs: generate-data
