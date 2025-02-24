@@ -17,13 +17,13 @@ from github import Repository
 from github import UnknownObjectException
 
 
-pypitemplate_repos_file = "ssb-pypitemplate-repos.json"
+pypitemplate_repos_file = "pypitemplate-repos.json"
 stat_repos_file = "stat-repos.json"
 
 logging.basicConfig(
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("ssb-pypitemplate-repos.log", mode="w", encoding="utf-8"),
+        logging.FileHandler("template-repos.log", mode="w", encoding="utf-8"),
         logging.StreamHandler(),
     ],
     format="%(asctime)s %(levelname)s %(message)s",
@@ -42,7 +42,7 @@ def get_repos(org: Organization) -> list[Repository]:
     repos = org.get_repos()
     non_archived_repos = [repo for repo in repos if not repo.archived]
     repo_full_names = sorted([repo.full_name for repo in non_archived_repos])
-    write_list_to_file(repo_full_names, Path("ssb-all-repos.txt"))
+    write_list_to_file(repo_full_names, Path("all-repos.txt"))
     ssb_prefix_repos = [
         repo for repo in repo_full_names if repo.startswith("statisticsnorway/ssb-")
     ]
@@ -56,7 +56,7 @@ def get_repos(org: Organization) -> list[Repository]:
 
 def filter_template_repos(repos: list[Repository]) -> tuple[list[str], list[str]]:
     logging.info(
-        "Scanning for repos created with ssb-pypitemplate or stat-repos with template-stat..."
+        "Scanning for repos derived from ssb-pypitemplate or stat-repos derived from template-stat..."
     )
     pypitemplate_repos = []
     stat_repos = []
@@ -87,7 +87,7 @@ def filter_template_repos(repos: list[Repository]) -> tuple[list[str], list[str]
 
     pypitemplate_repo_names = sorted([repo.full_name for repo in pypitemplate_repos])
     Path(pypitemplate_repos_file).write_text(json.dumps(pypitemplate_repo_names))
-    write_list_to_file(pypitemplate_repo_names, Path("ssb-pypitemplate-repos.txt"))
+    write_list_to_file(pypitemplate_repo_names, Path("pypitemplate-repos.txt"))
 
     stat_repo_names = sorted([repo.full_name for repo in stat_repos])
     Path(stat_repos_file).write_text(json.dumps(stat_repo_names))
@@ -191,7 +191,7 @@ def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
 
     html_template = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
         <meta charset="utf-8">
         <title>DataTables Example</title>
@@ -225,6 +225,25 @@ def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
         file.write(html_template)
 
 
+def create_index_page() -> None:
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Overview of repos using SSB templates</title>
+    </head>
+    <body>
+        <h1>Overview of repos using SSB templates</h1>
+        <p><a href="pypitemplate-repos.html">pypitemplate-repos</a> based on the ssb-pypitemplate repo.</p>
+        <p><a href="stat-repos.html">stat-repos</a> based on the ssb-project-template-stat repo and with a <code>stat-</code>prefix.</p>
+    </body>
+    </html>
+    """
+    with open("index.html", "w", encoding="utf-8") as file:
+        file.write(html)
+
+
 def main(token):
     logging.info("Script started")
 
@@ -250,8 +269,8 @@ def main(token):
     )
     save_as_html(
         pypitemplate_repo_stats,
-        "ssb-pypitemplate-repos.html",
-        "GitHub repos based on ssb-pypitemplate.",
+        "pypitemplate-repos.html",
+        "GitHub repos based on ssb-pypitemplate",
     )
     stat_repo_stats = get_repos_statistics(
         token, stat_repos, "statisticsnorway/ssb-project-template-stat"
@@ -259,8 +278,10 @@ def main(token):
     save_as_html(
         stat_repo_stats,
         "stat-repos.html",
-        "GitHub repos based on ssb-project-template-stat with stat-prefix.",
+        "GitHub repos based on ssb-project-template-stat with stat-prefix",
     )
+    create_index_page()
+    logging.info("Script finished")
 
 
 if __name__ == "__main__":
