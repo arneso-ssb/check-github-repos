@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -16,12 +17,13 @@ from github import Repository
 from github import UnknownObjectException
 
 
-repo_list_filename = "ssb-pypitemplate-repos.json"
+pypitemplate_repos_file = "pypitemplate-repos.json"
+stat_repos_file = "stat-repos.json"
 
 logging.basicConfig(
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("ssb-pypitemplate-repos.log", mode="w", encoding="utf-8"),
+        logging.FileHandler("template-repos.log", mode="w", encoding="utf-8"),
         logging.StreamHandler(),
     ],
     format="%(asctime)s %(levelname)s %(message)s",
@@ -38,37 +40,60 @@ def write_list_to_file(elements: list[str], filename: Path):
 def get_repos(org: Organization) -> list[Repository]:
     logging.info("Retrieving list of repos...")
     repos = org.get_repos()
-    repo_full_names = sorted([repo.full_name for repo in repos])
-    write_list_to_file(repo_full_names, Path("ssb-all-repos.txt"))
-    ssb_prefix_repos = [repo for repo in repo_full_names if repo.startswith("ssb-")]
+    non_archived_repos = [repo for repo in repos if not repo.archived]
+    repo_full_names = sorted([repo.full_name for repo in non_archived_repos])
+    write_list_to_file(repo_full_names, Path("all-repos.txt"))
+    ssb_prefix_repos = [
+        repo for repo in repo_full_names if repo.startswith("statisticsnorway/ssb-")
+    ]
     write_list_to_file(ssb_prefix_repos, Path("ssb-prefix-repos.txt"))
-    return repos
+    stat_prefix_repos = [
+        repo for repo in repo_full_names if repo.startswith("statisticsnorway/stat-")
+    ]
+    write_list_to_file(stat_prefix_repos, Path("stat-prefix-repos.txt"))
+    return non_archived_repos
 
 
-def filter_pypitemplate_repos(repos: list[Repository]) -> list[str]:
-    logging.info("Scanning for repos created with ssb-pypitemplate...")
-    found = 0
+def filter_template_repos(repos: list[Repository]) -> tuple[list[str], list[str]]:
+    logging.info(
+        "Scanning for repos derived from ssb-pypitemplate or stat-repos derived from template-stat..."
+    )
     pypitemplate_repos = []
+    stat_repos = []
     for index, repo in enumerate(repos, start=1):
         try:
-            logging.info(f"Checking repo {index}, found: {found}")
-            contents = repo.get_contents(".cruft.json")
-            if contents and "pypitemplate" in contents.decoded_content.decode("utf-8"):
-                logging.info(
-                    f"{repo.full_name} contains .cruft.json from ssb-pypitemplate"
-                )
-                pypitemplate_repos.append(repo)
-                found += 1
+            logging.info(
+                f"Checking repo {index}; Found pypitemplate: {len(pypitemplate_repos)}, stat: {len(stat_repos)}"
+            )
+            contents = repo.get_contents(".cruft.json").decoded_content.decode("utf-8")
+            if contents:
+                if "ssb-pypitemplate" in contents:
+                    logging.info(
+                        f"{repo.full_name} contains .cruft.json from ssb-pypitemplate"
+                    )
+                    pypitemplate_repos.append(repo)
+                elif "template-stat" in contents and repo.full_name.startswith(
+                    "statisticsnorway/stat-"
+                ):
+                    logging.info(
+                        f"{repo.full_name} contains .cruft.json from ssb-project-template-stat"
+                    )
+                    stat_repos.append(repo)
         except UnknownObjectException:
             pass  # If the file is not found, an exception is raised
         except GithubException as e:
             if e.status != 404:
                 raise e
 
-    repo_names = sorted([repo.full_name for repo in pypitemplate_repos])
-    Path(repo_list_filename).write_text(json.dumps(repo_names))
-    write_list_to_file(repo_names, Path("ssb-pypitemplate-repos.txt"))
-    return repo_names
+    pypitemplate_repo_names = sorted([repo.full_name for repo in pypitemplate_repos])
+    Path(pypitemplate_repos_file).write_text(json.dumps(pypitemplate_repo_names))
+    write_list_to_file(pypitemplate_repo_names, Path("pypitemplate-repos.txt"))
+
+    stat_repo_names = sorted([repo.full_name for repo in stat_repos])
+    Path(stat_repos_file).write_text(json.dumps(stat_repo_names))
+    write_list_to_file(stat_repo_names, Path("stat-repos.txt"))
+
+    return pypitemplate_repo_names, stat_repo_names
 
 
 class CommitInfo(TypedDict):
@@ -80,7 +105,10 @@ def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
     logging.info(f"Get commits from repo {repo_name}")
     repo = Github(token).get_repo(repo_name)
 
-    first_ssb_commit_date = datetime(year=2023, month=6, day=1)
+    if repo_name == "statisticsnorway/ssb-pypitemplate":
+        first_ssb_commit_date = datetime(year=2023, month=6, day=1)
+    else:
+        first_ssb_commit_date = datetime(year=2022, month=6, day=1)
     commits = repo.get_commits(sha=repo.default_branch, since=first_ssb_commit_date)
 
     tags = {tag.commit.sha: tag.name for tag in repo.get_tags()}
@@ -95,12 +123,15 @@ def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
     return commits_info
 
 
-def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFrame:
+def get_repos_statistics(
+    token: str, template_repos: list[str], template: str
+) -> pd.DataFrame:
     g = Github(token)
-    template_commits = get_template_commits("statisticsnorway/ssb-pypitemplate", token)
+    template_commits = get_template_commits(template, token)
 
+    now = datetime.now(UTC)
     data = []
-    for repo_name in pypitemplate_repos:
+    for repo_name in template_repos:
         repo = g.get_repo(repo_name)
         contents = repo.get_contents(".cruft.json").decoded_content.decode("utf-8")
         cruft_dict = json.loads(contents)
@@ -109,11 +140,22 @@ def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFr
         template_tag = template_commits[template_hash]["tag"]
         latest_update = repo.pushed_at
         latest_commiter = repo.get_commits()[0].commit.author.name
+
+        max_pr_age: int | None = None
+        pulls = repo.get_pulls(state="open")
+        for pr in pulls:
+            if pr.user and "dependabot" in pr.user.login.lower():
+                pr_age = (now - pr.created_at).days
+                if max_pr_age is None or pr_age > max_pr_age:
+                    max_pr_age = pr_age
+
+        max_pr_age = max_pr_age or 0  # Set to 0 if None
         data.append(
             {
                 "repo_name": repo_name,
                 "latest_update": latest_update,
                 "latest_commiter": latest_commiter,
+                "dependabot_pr_age": max_pr_age,
                 "template_hash": template_hash,
                 "template_date": template_date,
                 "template_tag": template_tag,
@@ -127,6 +169,7 @@ def get_repos_statistics(token: str, pypitemplate_repos: list[str]) -> pd.DataFr
             "repo_name",
             "latest_update",
             "latest_commiter",
+            "dependabot_pr_age",
             "template_hash",
             "template_date",
             "template_tag",
@@ -148,7 +191,7 @@ def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
 
     html_template = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
         <meta charset="utf-8">
         <title>DataTables Example</title>
@@ -182,29 +225,63 @@ def save_as_html(df: pd.DataFrame, filename: str, title: str) -> None:
         file.write(html_template)
 
 
+def create_index_page() -> None:
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Overview of repos using SSB templates</title>
+    </head>
+    <body>
+        <h1>Overview of repos using SSB templates</h1>
+        <p><a href="pypitemplate-repos.html">pypitemplate-repos</a> based on the ssb-pypitemplate repo.</p>
+        <p><a href="stat-repos.html">stat-repos</a> based on the ssb-project-template-stat repo and with a <code>stat-</code>prefix.</p>
+    </body>
+    </html>
+    """
+    with open("index.html", "w", encoding="utf-8") as file:
+        file.write(html)
+
+
 def main(token):
     logging.info("Script started")
 
     g = Github(token)
     org = g.get_organization("statisticsnorway")
 
-    if not Path(repo_list_filename).is_file():
-        repos = get_repos(org)
-        pypitemplate_repos = filter_pypitemplate_repos(repos)
+    if Path(pypitemplate_repos_file).is_file() and Path(stat_repos_file).is_file():
+        logging.info(f"Reading repos from {pypitemplate_repos_file}...")
+        pypitemplate_repos = json.loads(Path(pypitemplate_repos_file).read_text())
+        logging.info(f"Reading repos from {stat_repos_file}...")
+        stat_repos = json.loads(Path(stat_repos_file).read_text())
     else:
-        logging.info(f"Reading repos from {repo_list_filename}...")
-        pypitemplate_repos = json.loads(Path(repo_list_filename).read_text())
+        repos = get_repos(org)
+        pypitemplate_repos, stat_repos = filter_template_repos(repos)
 
     logging.info(
         f"There are {len(pypitemplate_repos)} repos created from ssb-pypitemplate"
     )
+    logging.info(f"There are {len(stat_repos)} repos created from stat-template")
 
-    repo_stat = get_repos_statistics(token, pypitemplate_repos)
+    pypitemplate_repo_stats = get_repos_statistics(
+        token, pypitemplate_repos, "statisticsnorway/ssb-pypitemplate"
+    )
     save_as_html(
-        repo_stat,
-        "ssb-pypitemplate-repos.html",
+        pypitemplate_repo_stats,
+        "pypitemplate-repos.html",
         "GitHub repos based on ssb-pypitemplate",
     )
+    stat_repo_stats = get_repos_statistics(
+        token, stat_repos, "statisticsnorway/ssb-project-template-stat"
+    )
+    save_as_html(
+        stat_repo_stats,
+        "stat-repos.html",
+        "GitHub repos based on ssb-project-template-stat with stat-prefix",
+    )
+    create_index_page()
+    logging.info("Script finished")
 
 
 if __name__ == "__main__":

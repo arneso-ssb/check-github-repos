@@ -2,8 +2,8 @@ name: Generate and Publish repo statistics
 
 on:
   schedule:
-    - cron: "0 0 * * 0" # Kjører natt til søndag kl. 00:00 UTC
-  workflow_dispatch: # Mulighet for å kjøre manuelt
+    - cron: "0 0 * * 0" # Running night to sunday at 00:00 UTC
+  workflow_dispatch: # For running manually
 
 permissions:
   contents: write
@@ -31,10 +31,14 @@ jobs:
         run: poetry install --no-root
 
       - name: Run script
-        run: poetry run python3 pypitemplate_repos.py ${{ secrets.SSB_READ_TOKEN }}
+        run: poetry run python3 template_repos.py ${{ secrets.SSB_READ_TOKEN }}
 
       - name: Move content to publish folder
-        run: mkdir _site && mv ssb-pypitemplate-repos.html _site/
+        run: |
+          mkdir _site
+          mv pypitemplate-repos.html _site/
+          mv stat-repos.html _site/
+          mv index.html _site/
 
       - name: Upload GitHub Pages artifacts
         uses: actions/upload-pages-artifact@v3
