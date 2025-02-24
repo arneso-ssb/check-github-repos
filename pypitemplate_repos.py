@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -104,7 +105,10 @@ def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
     logging.info(f"Get commits from repo {repo_name}")
     repo = Github(token).get_repo(repo_name)
 
-    first_ssb_commit_date = datetime(year=2023, month=6, day=1)
+    if repo_name == "statisticsnorway/ssb-pypitemplate":
+        first_ssb_commit_date = datetime(year=2023, month=6, day=1)
+    else:
+        first_ssb_commit_date = datetime(year=2022, month=6, day=1)
     commits = repo.get_commits(sha=repo.default_branch, since=first_ssb_commit_date)
 
     tags = {tag.commit.sha: tag.name for tag in repo.get_tags()}
@@ -125,6 +129,7 @@ def get_repos_statistics(
     g = Github(token)
     template_commits = get_template_commits(template, token)
 
+    now = datetime.now(UTC)
     data = []
     for repo_name in template_repos:
         repo = g.get_repo(repo_name)
@@ -135,11 +140,22 @@ def get_repos_statistics(
         template_tag = template_commits[template_hash]["tag"]
         latest_update = repo.pushed_at
         latest_commiter = repo.get_commits()[0].commit.author.name
+
+        max_pr_age: int | None = None
+        pulls = repo.get_pulls(state="open")
+        for pr in pulls:
+            if pr.user and "dependabot" in pr.user.login.lower():
+                pr_age = (now - pr.created_at).days
+                if max_pr_age is None or pr_age > max_pr_age:
+                    max_pr_age = pr_age
+
+        max_pr_age = max_pr_age or 0  # Set to 0 if None
         data.append(
             {
                 "repo_name": repo_name,
                 "latest_update": latest_update,
                 "latest_commiter": latest_commiter,
+                "dependabot_pr_age": max_pr_age,
                 "template_hash": template_hash,
                 "template_date": template_date,
                 "template_tag": template_tag,
@@ -153,6 +169,7 @@ def get_repos_statistics(
             "repo_name",
             "latest_update",
             "latest_commiter",
+            "dependabot_pr_age",
             "template_hash",
             "template_date",
             "template_tag",
@@ -218,7 +235,7 @@ def main(token):
         logging.info(f"Reading repos from {pypitemplate_repos_file}...")
         pypitemplate_repos = json.loads(Path(pypitemplate_repos_file).read_text())
         logging.info(f"Reading repos from {stat_repos_file}...")
-        stat_repos = json.loads(Path(pypitemplate_repos_file).read_text())
+        stat_repos = json.loads(Path(stat_repos_file).read_text())
     else:
         repos = get_repos(org)
         pypitemplate_repos, stat_repos = filter_template_repos(repos)
