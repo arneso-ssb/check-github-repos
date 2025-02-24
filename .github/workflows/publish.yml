@@ -31,7 +31,7 @@ jobs:
         run: poetry install --no-root
 
       - name: Run script
-        run: poetry run python3 pypitemplate_repos.py ${{ secrets.SSB_READ_TOKEN }}
+        run: poetry run python3 template_repos.py ${{ secrets.SSB_READ_TOKEN }}
 
       - name: Move content to publish folder
         run: mkdir _site && mv ssb-pypitemplate-repos.html _site/

@@ -20,4 +20,4 @@ jobs:
           poetry --version
           poetry env list
       - name: Run script
-        run: poetry run python3 pypitemplate_repos.py ${{ secrets.SSB_READ_TOKEN }}
+        run: poetry run python3 template_repos.py ${{ secrets.SSB_READ_TOKEN }}
