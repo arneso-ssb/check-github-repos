@@ -16,7 +16,6 @@ from github import Organization
 from github import Repository
 from github import UnknownObjectException
 
-
 pypitemplate_repos_file = "pypitemplate-repos.json"
 stat_repos_file = "stat-repos.json"
 

@@ -16,13 +16,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install poetry
-        run: pipx install poetry==2.1.1
+        run: pipx install poetry==2.3.4
 
-      - name: Seup python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: "3.12"
           cache: "poetry"
@@ -41,7 +41,7 @@ jobs:
           mv index.html _site/
 
       - name: Upload GitHub Pages artifacts
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
 
   deploy:
     needs: generate-data
@@ -53,4 +53,4 @@ jobs:
     steps:
       - name: Deploy til GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
