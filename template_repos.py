@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TypedDict
 
 import pandas as pd
+from github import Auth
 from github import Github
 from github import GithubException
 from github import Organization
@@ -101,8 +102,10 @@ class CommitInfo(TypedDict):
 
 
 def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
+
     logging.info(f"Get commits from repo {repo_name}")
-    repo = Github(token).get_repo(repo_name)
+    auth = Auth.Token(token)
+    repo = Github(auth=auth).get_repo(repo_name)
 
     if repo_name == "statisticsnorway/ssb-pypitemplate":
         first_ssb_commit_date = datetime(year=2023, month=6, day=1)
@@ -125,7 +128,8 @@ def get_template_commits(repo_name: str, token: str) -> dict[str, CommitInfo]:
 def get_repos_statistics(
     token: str, template_repos: list[str], template: str
 ) -> pd.DataFrame:
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     template_commits = get_template_commits(template, token)
 
     now = datetime.now(UTC)
@@ -246,7 +250,8 @@ def create_index_page() -> None:
 def main(token):
     logging.info("Script started")
 
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     org = g.get_organization("statisticsnorway")
 
     if Path(pypitemplate_repos_file).is_file() and Path(stat_repos_file).is_file():
