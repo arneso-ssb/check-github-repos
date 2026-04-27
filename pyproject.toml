@@ -1,43 +1,45 @@
-[tool.poetry]
+[project]
 name = "check-github-repos"
 version = "0.1.0"
 description = "Listing and checking GitHub repos for Jupyter notebooks with output for an organization."
-authors = ["Arne Sørli <81353974+arneso-ssb@users.noreply.github.com>"]
+authors = [{name = "Arne Sørli", email = "81353974+arneso-ssb@users.noreply.github.com"}]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "check-github-repos"}]
+requires-python = ">=3.12"
+dependencies = [
+    "gitpython >=3.1.30",
+    "nbstripout >=0.6.1",
+    "pygithub >=1.57",
+    "pandas >=2.2.3",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-gitpython = ">=3.1.30"
-nbstripout = ">=0.6.1"
-pygithub = ">=1.57"
-pandas = ">=2.2.3"
+[dependency-groups]
+dev = [
+    "pytest>=7.1.3",
+    "pytest-cov>=5.0.0",
+    "black[jupyter]>=25.11.0",
+    "isort>=5.12.0",
+    "pre-commit>=4.4.0",
+    "pre-commit-hooks>=6.0.0",
+    "mypy >=0.982",
+    "pylint >=2.15.3",
+    "pytest-mock >=3.9.0",
+    "ruff >=0.9.7",
+    "pandas-stubs >=2.2.3.241126",
+    "coverage[toml] (>=7.13.5,<8.0.0)",
+]
 
-[tool.poetry.group.dev.dependencies]
-black = {extras = ["d"], version = ">=23.3.0"}
-darglint = ">=1.8.1"
-isort = ">=5.10.1"
-mypy = ">=0.982"
-pre-commit = ">=2.20.0"
-pre-commit-hooks = ">=4.3.0"
-pylint = ">=2.15.3"
-coverage = {extras = ["toml"], version = ">=6.5.0"}
-pytest = ">=7.1.3"
-pytest-cov = ">=4.0.0"
-pytest-mock = ">=3.9.0"
-ruff = ">=0.9.7"
-pandas-stubs = ">=2.2.3.241126"
+[tool.poetry]
+requires-poetry = ">=2.2"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.2"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 profile = "black"
 force_single_line = true
 skip_gitignore = true
-lines_after_imports = 2
 
 [tool.pylint.format]
 max-line-length = "88"
@@ -89,7 +91,6 @@ ignore = [
     "T201",   # Allow print statements.
     "ERA001", # Allow commented-out code, needed for jupytext.
     "INP001", # Don't require __init__.py file.
-    "PD901",  # Allow df as variable name.
     "B018",   # Like T201, allow expressions printing variables in notebooks.
     "C408",   # Allow unnecessary collection call since can be more readable.
     "D101",   # Don't require docstring.

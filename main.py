@@ -15,7 +15,6 @@ from git import Repo
 from github import Github
 from github import Repository
 
-
 repo_list_filename = "jupyter-ssb-repos.json"
 
 logging.basicConfig(
